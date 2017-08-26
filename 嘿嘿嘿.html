@@ -1,0 +1,289 @@
+﻿<!doctype html>
+<html>
+
+	<head>
+		<meta charset="utf-8">
+		<title>智能课堂 —— 微博ajax接口测试 - www.zhinengshe.com</title>
+		<link href="style/weibo.css" rel="stylesheet" type="text/css" />
+	</head>
+	<script src="ajax.js" type="text/javascript" charset="utf-8"></script>
+	<script type="text/javascript">
+		window.onload = function() {
+			;(function(){
+				var oTxt = document.getElementsByClassName("takeTextField")[0];
+				var oInp = document.getElementsByClassName("inputs")[0];
+				var aTop = document.getElementsByClassName("top");
+				var aDown = document.getElementsByClassName("down_icon");
+				var aCut = document.getElementsByClassName("cut");
+				var oBig = document.getElementsByClassName("messList")[0];
+				var oPage = document.getElementsByClassName("page")[0];
+				var oNo = document.getElementsByClassName("noContent")[0];
+				//发表留言
+				var url = 'weibo.php'
+				oInp.onclick = function() {
+					//weibo.php?act=add&content=xxx
+					ajax({
+						url: url,
+						data: {
+							act: 'add',
+							content: oTxt.value
+						},
+						succ: function(str) {
+							var json = eval('(' + str + ')');
+							if(!json.error) {
+								oTxt.value = ""
+//								alert('发表成功')
+								oNo.style.display = "none";
+//								//调用函数并传参创建DIV
+//								var oDiv = createDiv(oTxt.value,json.time,0,0,json.id)
+//								//将创建的div添加到节点之前
+//								oBig.insertBefore(oDiv,oBig.children[0])
+//								//判断每页做多6条信息
+//								if(oBig.children.length > 6){
+//									//移除大盒子最后一个子节点
+//									oBig.removeChild(oBig.children[oBig.children.length-1])
+//								}
+								//从cookie来获取当前点击了哪一个
+								getPage(parseInt(getCookie("item"))+1);
+								//同上
+								getMsg(parseInt(getCookie("item"))+1)
+							} else {
+								alert("发表失败")
+							}
+						}
+					})
+				};
+				//获取一页信息
+				
+				function getMsg(n){
+					//清空盒子然后才方便往盒子里面添加东西
+					oBig.innerHTML = ""
+					ajax({
+						url : url,
+						data : {
+							act : 'get',
+							page : n || 1 
+						},
+						succ : function(str){
+							var json = eval('('+str+')')
+							if(!json.error){
+								//在成功请求到数据后 把提示没有留言的盒子隐藏
+								oNo.style.display = "none"
+								//遍历请求到的数据  然后将数据创建成DIV添加到dom树里
+								for(var i = 0 ; i < json.length ; i++){
+									var oDiv = createDiv(json[i].content,json[i].time,json[i].acc,json[i].ref,json[i].id)
+									oBig.appendChild(oDiv)
+								}
+							}
+						}
+					})
+				}
+				//获取页数
+				function getPage(){
+					//首先把写页数的盒子清空方便添加标签
+					oPage.innerHTML = ""
+					ajax({
+						url : url,
+						data : {
+							act : 'get_page_count'
+						},
+						succ : function(str){
+							var json = eval('('+str+')');
+							if(!json.error){
+								//请求到有几页就去创建几个a标签来跳转
+								for(var i = 0 ; i < json.count ; i++){
+									var oA = document.createElement("a");
+									//阻止a标签默认跳转事件
+									oA.href = 'javascript:;'
+									oA.innerHTML = i+1;
+									oPage.appendChild(oA)
+								}
+								//选项卡
+								var aA = oPage.getElementsByTagName("a");
+								//如果有cookie那就使用cookie
+								if(getCookie("item")){
+									aA[parseInt(getCookie("item"))].className = 'active'
+								}else{
+									aA[0].className = 'active'
+								}
+								//循环给每个a标签添加点击事件来做选项卡
+								for(var i = 0 ; i < aA.length ; i++){
+									aA[i].index = i
+									aA[i].onclick = function(){
+										//在点击时就存cookie,来方便使用
+										addCookie("item",this.index,2)
+										//清空所有的样式,选项卡必备
+										for(var i = 0 ; i < aA.length ; i++){
+											aA[i].className = '';
+											oBig.innerHTML = '';
+										}
+										//给选中的标签添加对应的样式
+										this.className = 'active'
+										getMsg(this.index+1)
+									}
+								}
+								
+							}
+						}
+					})
+				}
+				//网页打开时获取存取的cookie
+				if(getCookie("item")){
+					getPage(parseInt(getCookie("item"))+1)
+					getMsg(parseInt(getCookie("item"))+1)
+				}else{
+					getPage(1)
+					getMsg(1)
+				}
+				//创建
+				function createDiv(content,time,acc,ref,id){
+					var oDiv = document.createElement("div");
+					var oDate = new Date();
+					oDate.setTime(time*1000)
+					var oY = oDate.getFullYear();
+					var oM = oDate.getMonth()+1;
+					var oD = oDate.getDate();
+					var oH = oDate.getHours();
+					var oMs = oDate.getMinutes();
+					var oS = oDate.getSeconds();
+					var str = oY+'-'+oM+'-'+oD+' '+oH+':'+oMs+':'+oS;
+					oDiv.className = "reply";
+					oDiv.innerHTML += "<p class='replyContent'>"+ content + "</p>" 
+							+"<p class='operation'>" 
+								+"<span class='replyTime'>" + str + "</span>" 
+								+"<span class='handle'>" 
+									+"<a href='javascript:;' class='top'>" + acc + "</a>" 
+									+"<a href='javascript:;' class='down_icon'>" + ref + "</a>" 
+									+"<a href='javascript:;' class='cut'>删除</a>" 
+								+"</span>" 
+							+"</p>"
+					//删除
+					var oCut = oDiv.getElementsByClassName("cut")[0];
+					oCut.onclick = function(){
+						getPage(parseInt(getCookie("item"))+1)
+						ajax({
+							url : url ,
+							data : {
+								act : "del",
+								id : id
+							},
+							succ : function(str){
+								var json = eval('('+str+')');
+								if(!json.error){
+//									oBig.removeChild(oDiv)
+									getMsg(parseInt(getCookie("item"))+1)
+								}
+							}
+						})
+					}
+					//顶一下
+					var oTop = oDiv.getElementsByClassName("top")[0];
+					oTop.onclick = function(){
+						if(getCookie("acc"+id)){
+							alert("一天顶一次")
+						}else{	
+							ajax({
+								url : url ,
+								data : {
+									act : "acc",
+									id : id
+								},
+								succ : function(str){
+									var json = eval('('+str+')');
+									if(!json.error){
+										addCookie("acc"+id,"acc",1)
+										oTop.innerHTML = parseInt(oTop.innerHTML)+1
+									}
+								}
+							})
+						}
+					}
+					//踩一下
+					var oRef = oDiv.getElementsByClassName("down_icon")[0];
+					oRef.onclick = function(){
+						if(getCookie("ref"+id)){
+							alert("一天踩一次")
+						}else{							
+							ajax({
+								url : url ,
+								data : {
+									act : "ref",
+									id : id
+								},
+								succ : function(str){
+									var json = eval('('+str+')');
+									if(!json.error){
+										addCookie("ref"+id,"ref",1)
+										oRef.innerHTML = parseInt(oRef.innerHTML)+1
+									}
+								}
+							})
+						}
+					}
+					return oDiv;
+				}
+				
+			})();
+			
+			
+			
+			function addCookie(name,main,iDay){
+				var oDate = new Date();
+				oDate.setDate(oDate.getDate()+iDay);
+				document.cookie = name+'='+main+'; path=/; expires='+oDate;	
+			};
+			function getCookie(name){
+				var arr = document.cookie.split('; ')
+				for(var i = 0 ; i < arr.length ; i++){
+					var arr2 = arr[i].split('=')
+					if(arr2[0]==name){
+						return arr2[1]
+					}
+				}
+			};
+			function removeCookie(name){
+			  	addCookie(name, 1, -1);
+			};
+				
+
+		};
+	</script>
+
+	<body>
+		<div class="znsArea">
+			<!--留言-->
+			<div class="takeComment">
+				<textarea name="textarea" class="takeTextField" id="tijiaoText"></textarea>
+				<div class="takeSbmComment">
+					<input type="button" class="inputs" value="" />
+					<span>(可按 Enter 回复)</span>
+				</div>
+			</div>
+			<!--已留-->
+			<div class="commentOn">
+				<div class="noContent">暂无留言</div>
+				<div class="page">
+					<!--<a href="javascript:;" class="active">1</a>
+					<a href="javascript:;">2</a>
+					<a href="javascript:;">3</a>-->
+				</div>
+				<div class="messList">
+					<!--<div class="reply">
+						<p class="replyContent">卫士，新款卫士将推出总共14种车身式样。其中， XS旅行款车型售价为32295英镑(约33.6万元)。</p>
+						<p class="operation">
+							<span class="replyTime">2011-09-08 16:37:60</span>
+							<span class="handle">
+		                    	<a href="javascript:;" class="top">0</a>
+		                        <a href="javascript:;" class="down_icon">0</a>
+		                        <a href="javascript:;" class="cut">删除</a>
+		                    </span>
+						</p>
+					</div>-->
+
+				</div>
+				
+			</div>
+		</div>
+	</body>
+
+</html>
